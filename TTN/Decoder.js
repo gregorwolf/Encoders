@@ -1,13 +1,27 @@
 function Decoder(bytes, port) {
   var ports = port;
+  var v4_1 = toHexString(bytes);
   var msg = String.fromCharCode.apply(null, bytes);
+  var length = msg.length;
+  var v4_2 = v4_1.substr(12, 8);
+  var temp = v4_2.substr(0, 4);
+  var box_temp = parseInt((temp), 16);
+  var temperature = (((box_temp / 65536) * 165) - 40);
+  var hum = v4_2.substr(4, 8);
+  var box_hum = parseInt((hum), 16);
+  var hygrometry = ((box_hum / 65536) * 100);
   var bat = msg.substr(0, 4);
-  var battery = (bat - 2000) / 16;
+  var battery = Math.round((bat - 2000) / 16);
   var st = msg.substr(4, 1);
   var sta = dec_to_bho(st, 'B');
   var status = pad(sta, 2);
   var Tamper = status.substr(0, 1);
   var Valve = status.substr(1, 1);
+  var status_v4 = pad1(sta, 3);
+  var Cable_v4 = status_v4.substr(0, 1);
+  var Tamper_v4 = status_v4.substr(1, 1);
+  var Valve_v4 = status_v4.substr(2, 1);
+  var v4 = msg.substr(5, 1);
   var conf_p = parseInt(msg.substr(6, 2), 16);
   var conf_s = msg.substr(8, 2);
   var unit1 = msg.substr(8, 2);
@@ -17,6 +31,12 @@ function Decoder(bytes, port) {
 
   function pad(num, len) {
     return ("00" + num).substr(-len);
+  }
+  function pad1(num, len) {
+    return ("000" + num).substr(-len);
+  }
+  function roundToTwo(num) {
+    return +(Math.round(num + "e+2") + "e-2");
   }
   function dec_to_bho(n, base) {
     if (n < 0) {
@@ -36,7 +56,21 @@ function Decoder(bytes, port) {
         return ("Wrong input.........");
     }
   }
-  if (conf_p === 14 || conf_p === 15 || conf_p === 16 || conf_p === 17 || conf_p === 18 || conf_p === 19 || conf_p === 20) {
+  function ascii_to_hexa(str) {
+    var arr1 = [];
+    for (var n = 0, l = str.length; n < l; n++) {
+      var hex = Number(str.charCodeAt(n)).toString(16);
+      arr1.push(hex);
+    }
+    return arr1.join('');
+  }
+  function toHexString(bytes) {
+    return bytes.map(function (byte) {
+      return ("00" + (byte & 0xFF).toString(16)).slice(-2);
+    }).join('');
+  }
+
+  if (v4 === "@" && conf_p === 14 || conf_p === 15 || conf_p === 16 || conf_p === 17 || conf_p === 18 || conf_p === 19 || conf_p === 20) {
     return {
       Port: ports,
       Battery: battery,
@@ -47,7 +81,7 @@ function Decoder(bytes, port) {
       Schl_status: conf_s || 0,
     };
   }
-  if (conf_p === 21) {
+  if (v4 === "@" && conf_p === 21) {
     return {
       Port: ports,
       Battery: battery,
@@ -58,7 +92,7 @@ function Decoder(bytes, port) {
       Schl_status_ack: conf_s || 0,
     };
   }
-  else if (conf_p === 12 || conf_p === 13) {
+  else if (v4 === "@" && conf_p === 12 || conf_p === 13) {
     return {
       Port: ports,
       Battery: battery,
@@ -66,7 +100,19 @@ function Decoder(bytes, port) {
       Tamper: Tamper,
       Status: status,
       RTC_Port: conf_p || 0,
-      RTC_status: conf_s || 0
+      RTC_status: conf_s || 0,
+    };
+  }
+  else if (v4 === "#") {
+    return {
+      Port: ports,
+      Battery: battery,
+      Cable: Cable_v4,
+      Valve: Valve_v4,
+      Tamper: Tamper_v4,
+      Status: status_v4,
+      Temperature: roundToTwo(temperature),
+      Hygrometry: roundToTwo(hygrometry),
     };
   }
   else {

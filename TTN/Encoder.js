@@ -303,3 +303,6 @@ function Encoder(object, port) {
     return bytes;
   }
 }
+
+var sample = { "unit1": 0, "time1": 4, "unit2": 0, "time2": 8 };
+console.log(JSON.stringify( Encoder(sample, 11) ));
